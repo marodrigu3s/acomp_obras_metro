@@ -67,7 +67,7 @@ Este protótipo funciona como **base operacional** que poderá futuramente integ
 | **Douglas Aldred** | 23.00375-8 | https://github.com/do-ald533 |
 | **Guilherme Pereira** | 23.01582-9 | https://github.com/GuiPereira04 |
 | **Gustavo Affonso** | 23.00690-0 | https://github.com/GustavoAffonso |
-| **Leonardo Vieira** | 23.00861-0 | https://github.com/LeoVieira05 |
+| **Léo Vieira** | 23.00861-0 | https://github.com/LeoVieira05 |
 
 ---
 

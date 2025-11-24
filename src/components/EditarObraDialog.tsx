@@ -52,9 +52,9 @@ const EditarObraDialog = ({ open, onOpenChange, obra, onObraUpdated }: EditarObr
   }, [open, obra]);
 
   const handleSubmit = async () => {
-    if (!formData.nome || !formData.engenheiro) {
+    if (!formData.nome || !formData.localizacao) {
       toast.error("Campos obrigatórios", {
-        description: "Por favor, preencha todos os campos obrigatórios.",
+        description: "Por favor, preencha nome e localização da obra.",
       });
       return;
     }
@@ -63,9 +63,7 @@ const EditarObraDialog = ({ open, onOpenChange, obra, onObraUpdated }: EditarObr
 
     const dadosAtualizados = {
       nome_obra: formData.nome,
-      responsavel_obra: formData.engenheiro,
       localizacao: formData.localizacao,
-      previsao_termino: formData.previsaoTermino,
     };
 
     const resultado = await editarObra(obra.id.toString(), dadosAtualizados);
@@ -113,59 +111,32 @@ const EditarObraDialog = ({ open, onOpenChange, obra, onObraUpdated }: EditarObr
             />
           </div>
 
-          {/* Engenheiro Responsável */}
+          {/* Localização */}
           <div className="space-y-2">
-            <Label htmlFor="engenheiro" className="text-foreground">
-              Engenheiro Responsável *
+            <Label htmlFor="localizacao" className="text-foreground">
+              Localização *
             </Label>
             <Input
-              id="engenheiro"
-              placeholder="Ex: Eng. João Silva"
-              value={formData.engenheiro}
-              onChange={(e) => setFormData({ ...formData, engenheiro: e.target.value })}
+              id="localizacao"
+              placeholder="Ex: Av. Paulista, 1000"
+              value={formData.localizacao}
+              onChange={(e) => setFormData({ ...formData, localizacao: e.target.value })}
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Localização */}
-            <div className="space-y-2">
-              <Label htmlFor="localizacao" className="text-foreground">
-                Localização
-              </Label>
-              <Input
-                id="localizacao"
-                placeholder="Ex: Av. Paulista, 1000"
-                value={formData.localizacao}
-                onChange={(e) => setFormData({ ...formData, localizacao: e.target.value })}
-              />
+          {/* Info: Campos não editáveis */}
+          <div className="bg-muted/30 border border-border rounded-lg p-4">
+            <p className="text-sm text-muted-foreground">
+              <strong>Nota:</strong> Responsável, previsão de término e observações não podem ser alterados após a criação da obra.
+            </p>
+            <div className="mt-3 space-y-2 text-sm">
+              <div>
+                <span className="font-medium">Responsável:</span> {formData.engenheiro}
+              </div>
+              <div>
+                <span className="font-medium">Previsão:</span> {new Date(formData.previsaoTermino).toLocaleDateString('pt-BR')}
+              </div>
             </div>
-
-            {/* Previsão de Término */}
-            <div className="space-y-2">
-              <Label htmlFor="previsaoTermino" className="text-foreground">
-                Previsão de Término
-              </Label>
-              <Input
-                id="previsaoTermino"
-                type="date"
-                value={formData.previsaoTermino}
-                onChange={(e) => setFormData({ ...formData, previsaoTermino: e.target.value })}
-              />
-            </div>
-          </div>
-
-          {/* Observações */}
-          <div className="space-y-2">
-            <Label htmlFor="observacoes" className="text-foreground">
-              Observações
-            </Label>
-            <Textarea
-              id="observacoes"
-              placeholder="Informações adicionais sobre a obra..."
-              className="min-h-[100px] resize-none"
-              value={formData.observacoes}
-              onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
-            />
           </div>
         </div>
 

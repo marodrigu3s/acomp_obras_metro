@@ -28,7 +28,7 @@ import UploadPhotoDialog from "@/components/UploadPhotoDialog";
 import EditarObraDialog from "@/components/EditarObraDialog";
 import GerenciarEquipeDialog from "@/components/GerenciarEquipeDialog";
 import metroLogo from "@/assets/metro-sp-logo.png";
-import { getObraDetalhes, deletarFoto, listarRelatorios /*, listarAlertas */ } from "@/services/api";
+import { getObraDetalhes, deletarFoto, listarRelatorios, getRelatorioPDF, listarFotos, listarArquivosBIM /*, listarAlertas */ } from "@/services/api";
 import { toast } from "sonner";
 
 const ObraDetalhes = () => {
@@ -69,20 +69,25 @@ const ObraDetalhes = () => {
     if (!id) return;
 
     setLoading(true);
-    const resultado = await getObraDetalhes(id);
+    
+    try {
+      // Carregar dados básicos da obra
+      const resultadoObra = await getObraDetalhes(id);
 
-    if (resultado.error) {
-      toast.error("Erro ao carregar obra", {
-        description: resultado.error,
-      });
-      navigate("/dashboard");
-    } else {
-      // Formatar dados da obra - normalizar formato da API
-      const obraData = resultado.data.obra || resultado.data;
+      if (resultadoObra.error) {
+        toast.error("Erro ao carregar obra", {
+          description: resultadoObra.error,
+        });
+        navigate("/dashboard");
+        return;
+      }
+
+      // Formatar dados da obra
+      const obraData = resultadoObra.data;
       const obraFormatada = {
-        id: obraData.id_obra,
+        id: obraData.id,
         nome: obraData.nome_obra,
-        engenheiro: obraData.engenheiro_responsavel,
+        engenheiro: obraData.responsavel_obra,
         localizacao: obraData.localizacao,
         previsaoTermino: new Date(obraData.previsao_termino).toLocaleDateString("pt-BR"),
         status: obraData.status,
@@ -90,58 +95,60 @@ const ObraDetalhes = () => {
       };
       setObra(obraFormatada);
 
-      // Formatar fotos
-      const fotosFormatadas = (resultado.data.fotos || []).map((foto: any) => ({
-        id: foto.id_foto,
-        titulo: foto.nome_foto,
-        data: new Date(foto.data_upload).toLocaleDateString("pt-BR"),
-        camera: foto.localizacao || "Não especificado",
-        analise: foto.descricao || "Análise pendente",
-        status: foto.status || "aprovado",
-        url: foto.url_foto,
-      }));
-      setFotos(fotosFormatadas);
+      // Carregar fotos separadamente
+      const resultadoFotos = await listarFotos(id);
+      if (!resultadoFotos.error && resultadoFotos.data) {
+        const fotosFormatadas = resultadoFotos.data.map((foto: any) => ({
+          id: foto.id_foto,
+          titulo: foto.nome_foto,
+          data: foto.data_upload ? new Date(foto.data_upload).toLocaleDateString("pt-BR") : "-",
+          camera: foto.localizacao || "Não especificado",
+          analise: foto.descricao || "Análise concluída",
+          status: foto.status || "analisada",
+          url: foto.url_foto,
+        }));
+        setFotos(fotosFormatadas);
+      }
 
-      // Formatar arquivos BIM
-      const arquivosFormatados = (resultado.data.arquivos_bim || []).map((arquivo: any) => ({
-        id: arquivo.id_arquivo,
-        nome: arquivo.nome_arquivo,
-        tamanho: `${(arquivo.tamanho / (1024 * 1024)).toFixed(2)} MB`,
-        tipo: arquivo.tipo_arquivo,
-        dataUpload: new Date(arquivo.data_upload).toLocaleDateString("pt-BR"),
-        url: arquivo.url_arquivo,
-      }));
-      setArquivosBIM(arquivosFormatados);
+      // Carregar arquivos BIM separadamente
+      const resultadoBIM = await listarArquivosBIM(id);
+      if (!resultadoBIM.error && resultadoBIM.data) {
+        const arquivosFormatados = resultadoBIM.data.map((arquivo: any) => ({
+          id: arquivo.id,
+          nome: arquivo.nome_arquivo,
+          tamanho: `${(arquivo.tamanho_arquivo / (1024 * 1024)).toFixed(2)} MB`,
+          tipo: arquivo.tipo_arquivo,
+          dataUpload: arquivo.created_at ? new Date(arquivo.created_at).toLocaleDateString("pt-BR") : "-",
+          url: arquivo.url_s3,
+        }));
+        setArquivosBIM(arquivosFormatados);
+      }
 
-      // Buscar relatórios e alertas
-      await carregarRelatoriosEAlertas(id, fotosFormatadas);
+      // Buscar relatórios
+      await carregarRelatoriosEAlertas(id);
+    } catch (error) {
+      console.error("Erro ao carregar dados:", error);
+      toast.error("Erro ao carregar dados da obra");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
-  const carregarRelatoriosEAlertas = async (obraId: string, fotosData: any[]) => {
+  const carregarRelatoriosEAlertas = async (obraId: string) => {
     // Buscar relatórios
     const resultadoRelatorios = await listarRelatorios(obraId);
     if (!resultadoRelatorios.error && resultadoRelatorios.data) {
-      const relatoriosFormatados = (resultadoRelatorios.data.relatorios || []).map((relatorio: any) => {
-        const dataRelatorio = new Date(relatorio.data_criacao);
-        const titulo = `Relatório de Progresso - ${dataRelatorio.toLocaleDateString("pt-BR")}`;
-        
-        // Contar quantas fotos existiam até a data deste relatório
-        const fotosAteRelatorio = fotosData.filter((foto: any) => {
-          const dataFoto = foto.data.split('/').reverse().join('-'); // Converter DD/MM/YYYY para YYYY-MM-DD
-          const dataRel = relatorio.data_criacao.split('T')[0]; // Pegar apenas a data sem hora
-          return dataFoto <= dataRel;
-        }).length;
-        
+      const relatoriosFormatados = resultadoRelatorios.data.map((relatorio: any) => {
+        // O backend já retorna os dados formatados corretamente
         return {
-          id: relatorio.id_relatorio,
-          titulo: titulo,
-          data: dataRelatorio.toLocaleDateString("pt-BR"),
-          totalFotos: fotosAteRelatorio,
-          arquivo_pdf: relatorio.arquivo_pdf || null,
-          status: relatorio.status || "Em Andamento",
-          descricao: relatorio.descricao || "Relatório de acompanhamento da obra.",
+          id: relatorio.id,
+          analysis_id: relatorio.analysis_id,
+          titulo: relatorio.nome_relatorio || `Relatório #${relatorio.sequence_number || relatorio.id}`,
+          data: relatorio.data_criacao || relatorio.analyzed_at,
+          progresso: relatorio.progresso,
+          totalFotos: 0, // Não temos essa informação do backend
+          arquivo_pdf: relatorio.arquivo_pdf,
+          status: "Concluído",
         };
       });
       setRelatorios(relatoriosFormatados);
@@ -599,16 +606,34 @@ const ObraDetalhes = () => {
                 </Button>
                 <Button 
                   className="flex-1"
-                  onClick={() => {
-                    if (relatorioSelecionado.arquivo_pdf) {
-                      window.open(relatorioSelecionado.arquivo_pdf, '_blank');
-                      toast.success("Baixando relatório PDF");
+                  onClick={async () => {
+                    if (relatorioSelecionado.analysis_id) {
+                      try {
+                        const resultado = await getRelatorioPDF(relatorioSelecionado.analysis_id);
+                        
+                        if (resultado.error) {
+                          toast.error("Erro ao baixar PDF", {
+                            description: resultado.error,
+                          });
+                        } else if (resultado.data) {
+                          // Cria URL do blob e abre em nova aba
+                          const url = URL.createObjectURL(resultado.data);
+                          window.open(url, '_blank');
+                          toast.success("Abrindo relatório PDF");
+                          
+                          // Libera memória após 1 minuto
+                          setTimeout(() => URL.revokeObjectURL(url), 60000);
+                        }
+                      } catch (error) {
+                        toast.error("Erro ao processar PDF");
+                      }
                     } else {
-                      toast.error("Arquivo PDF não disponível", {
-                        description: "O PDF deste relatório ainda não foi gerado pelo backend.",
+                      toast.error("Relatório sem ID de análise", {
+                        description: "Este relatório não possui um ID de análise da IA.",
                       });
                     }
                   }}
+                  disabled={!relatorioSelecionado.analysis_id}
                 >
                   <Download className="w-4 h-4 mr-2" />
                   Baixar PDF

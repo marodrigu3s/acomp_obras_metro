@@ -48,14 +48,11 @@ const UploadPhotoDialog = ({ open, onOpenChange, obraId, onPhotoUploaded }: Uplo
 
     setLoading(true);
 
-    // Gera data atual no formato YYYY-MM-DD
-    const dataHoje = new Date().toISOString().split('T')[0];
-
     const resultado = await uploadFoto(
       obraId,
       selectedFile,
       nomeFoto,
-      dataHoje,
+      undefined, // data_foto é opcional, backend usa data atual
       descricao || undefined
     );
 
@@ -64,7 +61,9 @@ const UploadPhotoDialog = ({ open, onOpenChange, obraId, onPhotoUploaded }: Uplo
         description: resultado.error,
       });
     } else {
-      toast.success("Foto enviada para análise com sucesso!");
+      toast.success("Foto enviada para análise com sucesso!", {
+        description: "A IA está processando a imagem e gerará um relatório automaticamente.",
+      });
       
       // Reset form
       setSelectedFile(null);

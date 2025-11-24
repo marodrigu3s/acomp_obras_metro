@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { TrainFront, MapPin, Camera, FileText, Plus, LogOut, User, Search, Users as UsersIcon } from "lucide-react";
 import NovaObraDialog from "@/components/NovaObraDialog";
 import metroLogo from "@/assets/metro-sp-logo.png";
-import { listarObras } from "@/services/api";
+import { listarObras, listarRelatorios } from "@/services/api";
 import { toast } from "sonner";
 
 const Dashboard = () => {
@@ -18,6 +18,7 @@ const Dashboard = () => {
   const [userRole, setUserRole] = useState<string>("");
   const [userData, setUserData] = useState<any>(null);
   const [obras, setObras] = useState<any[]>([]);
+  const [totalRelatorios, setTotalRelatorios] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -45,25 +46,61 @@ const Dashboard = () => {
         description: resultado.error,
       });
       setObras([]);
+      setTotalRelatorios(0);
     } else {
       // Mapear dados da API para o formato esperado
-      const obrasFormatadas = resultado.data.projects.map((projeto: any) => ({
-        id: projeto.id_obra,
-        nome: projeto.nome_obra,
-        engenheiro: projeto.engenheiro_responsavel,
-        localizacao: projeto.localizacao,
-        previsaoTermino: new Date(projeto.previsao_termino).toLocaleDateString('pt-BR'),
-        status: projeto.status,
-        progresso: projeto.progresso,
-        fotos: projeto.total_fotos || 0,
-        ultimaFoto: projeto.ultima_foto 
-          ? `Há ${Math.floor((Date.now() - new Date(projeto.ultima_foto).getTime()) / (1000 * 60 * 60))} horas`
-          : "Nenhuma foto",
-        equipe: [], // TODO: Implementar gestão de equipe na API
-      }));
+      const obrasFormatadas = resultado.data.projects.map((projeto: any) => {
+        // Normalizar status da API para o formato esperado
+        let statusNormalizado = projeto.status?.toLowerCase().replace(/\s+/g, '_') || 'em_andamento';
+        // Converter "finalizada" para "concluida"
+        if (statusNormalizado === 'finalizada') {
+          statusNormalizado = 'concluida';
+        }
+        
+        // Calcular tempo desde última foto
+        let ultimaFotoTexto = "Nenhuma foto";
+        if (projeto.ultima_foto) {
+          const diferencaMs = Date.now() - new Date(projeto.ultima_foto).getTime();
+          const horas = Math.floor(diferencaMs / (1000 * 60 * 60));
+          const dias = Math.floor(horas / 24);
+          
+          if (dias >= 1) {
+            ultimaFotoTexto = `Há ${dias} ${dias === 1 ? 'dia' : 'dias'}`;
+          } else {
+            ultimaFotoTexto = `Há ${horas} ${horas === 1 ? 'hora' : 'horas'}`;
+          }
+        }
+        
+        return {
+          id: projeto.id_obra,
+          nome: projeto.nome_obra,
+          engenheiro: projeto.engenheiro_responsavel,
+          localizacao: projeto.localizacao,
+          previsaoTermino: new Date(projeto.previsao_termino).toLocaleDateString('pt-BR'),
+          status: statusNormalizado,
+          progresso: projeto.progresso,
+          fotos: projeto.total_fotos || 0,
+          ultimaFoto: ultimaFotoTexto,
+          equipe: [], // TODO: Implementar gestão de equipe na API
+        };
+      });
       setObras(obrasFormatadas);
+      
+      // Buscar total de relatórios de todas as obras
+      await carregarTotalRelatorios(obrasFormatadas.map(o => o.id));
     }
     setLoading(false);
+  };
+
+  const carregarTotalRelatorios = async (obraIds: string[]) => {
+    let total = 0;
+    for (const obraId of obraIds) {
+      const resultado = await listarRelatorios(obraId.toString());
+      if (!resultado.error && resultado.data?.relatorios) {
+        total += resultado.data.relatorios.length;
+      }
+    }
+    setTotalRelatorios(total);
   };
 
   const handleLogout = () => {
@@ -87,20 +124,18 @@ const Dashboard = () => {
     })
     .map((obra: any) => ({
       ...obra,
-      statusLabel: obra.status === "em_andamento" ? "Em andamento" : 
-                   obra.status === "planejamento" ? "Planejamento" : 
-                   obra.status === "concluida" ? "Finalizada" : "Em andamento",
-      corBorda: obra.status === "em_andamento" ? "border-l-status-ongoing" : 
-                obra.status === "planejamento" ? "border-l-status-planning" : 
-                obra.status === "concluida" ? "border-l-status-completed" : "border-l-status-ongoing",
+      statusLabel: obra.status === "concluida" ? "Finalizada" : "Em andamento",
+      corBorda: obra.status === "concluida" ? "border-l-status-completed" : "border-l-status-ongoing",
     }));
 
-  const statusConfig = {
+  const statusConfig: Record<string, { bg: string; text: string; label: string }> = {
     em_andamento: { bg: "bg-status-ongoing/10", text: "text-status-ongoing", label: "Em andamento" },
-    planejamento: { bg: "bg-status-planning/10", text: "text-status-planning", label: "Planejamento" },
     concluida: { bg: "bg-status-completed/10", text: "text-status-completed", label: "Finalizada" },
+    default: { bg: "bg-status-ongoing/10", text: "text-status-ongoing", label: "Em andamento" },
   };
 
+  // DESABILITADO - Seção de atividades recentes removida
+  /*
   const atividades = [
     {
       id: 1,
@@ -119,6 +154,7 @@ const Dashboard = () => {
       obraId: 2,
     },
   ];
+  */
 
   return (
     <div className="min-h-screen bg-secondary/30">
@@ -127,7 +163,7 @@ const Dashboard = () => {
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-12 h-12 bg-white rounded-lg p-1.5">
+              <div className="flex items-center justify-center w-18 h-12 bg-white rounded-lg p-1.5">
                 <img src={metroLogo} alt="Metrô São Paulo" className="w-full h-full object-contain" />
               </div>
               <div>
@@ -191,7 +227,7 @@ const Dashboard = () => {
               <FileText className="w-5 h-5 text-primary" />
             </div>
             <div className="text-3xl font-bold text-foreground">
-              {loading ? "..." : obrasFiltradas.length * 3}
+              {loading ? "..." : totalRelatorios}
             </div>
           </Card>
         </div>
@@ -232,7 +268,7 @@ const Dashboard = () => {
                 <div className="mb-4">
                   <div className="flex items-start justify-between mb-2">
                     <h3 className="font-semibold text-lg text-foreground">{obra.nome}</h3>
-                    <Badge className={`${statusConfig[obra.status as keyof typeof statusConfig].bg} ${statusConfig[obra.status as keyof typeof statusConfig].text} border-0`}>
+                    <Badge className={`${(statusConfig[obra.status] || statusConfig.default).bg} ${(statusConfig[obra.status] || statusConfig.default).text} border-0`}>
                       {obra.statusLabel}
                     </Badge>
                   </div>
@@ -241,7 +277,7 @@ const Dashboard = () => {
 
                 <div className="mb-4">
                   <div className="flex items-center justify-between text-sm mb-2">
-                    <span className="text-muted-foreground">Progresso</span>
+                    <span className="text-muted-foreground">Progresso Estimado</span>
                     <span className="font-semibold text-foreground">{obra.progresso}%</span>
                   </div>
                   <Progress value={obra.progresso} className="h-2" />
@@ -276,7 +312,8 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Recent Activity */}
+        {/* DESABILITADO - Seção de atividades recentes removida */}
+        {/*
         <div>
           <h2 className="text-2xl font-bold text-foreground mb-6">Atividade Recente</h2>
           <Card className="divide-y divide-border">
@@ -306,6 +343,7 @@ const Dashboard = () => {
             ))}
           </Card>
         </div>
+        */}
       </main>
 
       <NovaObraDialog open={novaObraDialogOpen} onOpenChange={setNovaObraDialogOpen} />

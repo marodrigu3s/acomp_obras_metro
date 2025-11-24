@@ -129,11 +129,30 @@ export const listarObras = async () => {
  * Obter detalhes completos de uma obra
  * Endpoint: GET /projects/:id
  * 
- * Resposta: { obra, fotos, relatorios, arquivos_bim }
+ * Resposta: { obra, fotos, relatorios, alertas, arquivos_bim }
  */
 export const getObraDetalhes = async (id: string) => {
   return apiRequest(`/projects/${id}`, 'GET');
 };
+
+/**
+ * Listar relatórios de uma obra
+ * Endpoint: GET /reports/:obraId
+ */
+export const listarRelatorios = async (obraId: string) => {
+  return apiRequest(`/reports/${obraId}`, 'GET');
+};
+
+/**
+ * DESABILITADO - Sistema de alertas removido
+ * Listar alertas de uma obra
+ * Endpoint: GET /alerts/:obraId
+ */
+/*
+export const listarAlertas = async (obraId: string) => {
+  return apiRequest(`/alerts/${obraId}`, 'GET');
+};
+*/
 
 /**
  * Deletar uma obra

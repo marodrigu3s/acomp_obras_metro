@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,11 +11,28 @@ import { toast } from "sonner";
 const Perfil = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    nome: "Carlos Silva",
-    email: "carlos.silva@metrovsp.com.br",
-    cargo: "engenheiro",
-    area: "obras-civis",
+    nome: "",
+    email: "",
+    cargo: "",
+    area: "",
   });
+
+  useEffect(() => {
+    // Verificar se usuário está logado e carregar dados
+    const usuarioLogado = localStorage.getItem("usuarioLogado");
+    if (!usuarioLogado) {
+      navigate("/");
+      return;
+    }
+    
+    const userData = JSON.parse(usuarioLogado);
+    setFormData({
+      nome: userData.nome || "",
+      email: userData.email || "",
+      cargo: userData.cargo || "",
+      area: userData.area || "",
+    });
+  }, [navigate]);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,7 +42,21 @@ const Perfil = () => {
       return;
     }
 
-    toast.success("Perfil atualizado com sucesso!");
+    // Atualizar dados no localStorage
+    const usuarioLogado = localStorage.getItem("usuarioLogado");
+    if (usuarioLogado) {
+      const userData = JSON.parse(usuarioLogado);
+      const updatedUser = {
+        ...userData,
+        nome: formData.nome,
+        email: formData.email,
+        cargo: formData.cargo,
+        area: formData.area,
+      };
+      localStorage.setItem("usuarioLogado", JSON.stringify(updatedUser));
+      
+      toast.success("Perfil atualizado com sucesso!");
+    }
   };
 
   return (

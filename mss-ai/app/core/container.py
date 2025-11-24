@@ -1,0 +1,87 @@
+"""
+Container de Injeção de Dependências para VIRAG-BIM.
+Configura todos os services, clients e suas dependências.
+"""
+
+from dependency_injector import containers, providers
+
+from app.clients.cache import RedisCache
+from app.clients.opensearch import OpenSearchClient
+from app.core.settings import get_settings
+from app.services.bim_analysis import BIMAnalysisService
+from app.services.comparison_service import ComparisonService
+from app.services.element_matcher import ElementMatcher
+from app.services.embedding_service import EmbeddingService
+from app.services.ifc_processor import IFCProcessorService
+from app.services.progress_calculator import ProgressCalculator
+from app.services.rag_search_service import RAGSearchService
+from app.services.vlm_service import VLMService
+
+
+class Container(containers.DeclarativeContainer):
+    """Container de Injeção de Dependências."""
+
+    wiring_config = containers.WiringConfiguration(
+        modules=[
+            "app.routes.bim.projects",
+            "app.routes.bim.analysis",
+            "app.routes.bim.progress",
+            "app.routes.bim.comparison",
+            "app.routes.bim.alerts",
+            "app.routes.health",
+        ]
+    )
+
+    # Settings
+    settings = providers.Singleton(get_settings)
+
+    # Clients
+    redis_cache = providers.Singleton(
+        RedisCache,
+        host=settings.provided.redis_host,
+        port=settings.provided.redis_port,
+        ttl=settings.provided.cache_ttl,
+    )
+
+    opensearch_client = providers.Singleton(
+        OpenSearchClient,
+        hosts=settings.provided.opensearch_hosts,
+    )
+
+    # ML Services
+    vlm_service = providers.Singleton(
+        VLMService,
+    )
+
+    embedding_service = providers.Singleton(
+        EmbeddingService,
+    )
+
+    # BIM Analysis Supporting Services
+    rag_search_service = providers.Singleton(RAGSearchService)
+
+    element_matcher = providers.Singleton(ElementMatcher)
+
+    progress_calculator = providers.Singleton(ProgressCalculator)
+
+    comparison_service = providers.Singleton(
+        ComparisonService,
+        vlm_service=vlm_service,
+        progress_calculator=progress_calculator,
+    )
+
+    # BIM Services
+    ifc_processor = providers.Singleton(
+        IFCProcessorService,
+        embedding_service=embedding_service,
+    )
+
+    bim_analysis_service = providers.Singleton(
+        BIMAnalysisService,
+        vlm_service=vlm_service,
+        embedding_service=embedding_service,
+        rag_search_service=rag_search_service,
+        element_matcher=element_matcher,
+        progress_calculator=progress_calculator,
+        comparison_service=comparison_service,
+    )

@@ -1,0 +1,122 @@
+version: '3.8'
+
+services:
+  localstack:
+    image: localstack/localstack:3.0
+    container_name: localstack
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=dynamodb,logs
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - DEBUG=1
+    volumes:
+      - "./scripts/localstack:/etc/localstack/init/ready.d"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - "localstack-data:/var/lib/localstack"
+    networks:
+      - default
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    networks:
+      - default
+
+  opensearch:
+    image: opensearchproject/opensearch:2.11.0
+    container_name: opensearch
+    environment:
+      - discovery.type=single-node
+      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+      - plugins.security.disabled=true
+      - DISABLE_INSTALL_DEMO_CONFIG=true
+      - bootstrap.memory_lock=true
+      - "OPENSEARCH_INITIAL_ADMIN_PASSWORD=Admin@123"
+    ports:
+      - "9200:9200"
+      - "9600:9600"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - default
+
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:2.11.0
+    container_name: opensearch-dashboards
+    ports:
+      - "5601:5601"
+    environment:
+      - OPENSEARCH_HOSTS=http://opensearch:9200
+      - DISABLE_SECURITY_DASHBOARDS_PLUGIN=true
+    depends_on:
+      - opensearch
+    networks:
+      - default
+
+  # api:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: api-service
+  #   ports:
+  #     - "8000:8000"
+  #   environment:
+  #     # DynamoDB (via LocalStack)
+  #     - DYNAMODB_ENDPOINT_URL=http://localstack:4566
+  #     # Redis
+  #     - REDIS_HOST=redis
+  #     - REDIS_PORT=6379
+  #     - CACHE_TTL=3600
+  #     # OpenSearch
+  #     - OPENSEARCH_HOST=opensearch
+  #     - OPENSEARCH_PORT=9200
+  #     - OPENSEARCH_HOSTS=["http://opensearch:9200"]
+  #     - OPENSEARCH_USE_SSL=false
+  #     - OPENSEARCH_VERIFY_CERTS=false
+  #     # VLM Models
+  #     - VLM_MODEL_NAME=Salesforce/blip2-opt-2.7b
+  #     - VLM_MODEL_CACHE_DIR=/app/models
+  #     - EMBEDDING_MODEL_NAME=sentence-transformers/clip-ViT-B-32
+  #     - USE_QUANTIZATION=true
+  #     - DEVICE=cpu
+  #     # Processing
+  #     - MAX_IMAGE_SIZE=1024
+  #     - MAX_FILE_SIZE_MB=50
+  #     - FUZZY_MATCH_THRESHOLD=80
+  #   volumes:
+  #     - model-cache:/app/models
+  #   depends_on:
+  #     - localstack
+  #     - redis
+  #     - opensearch
+  #   networks:
+  #     - default
+  #   command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+volumes:
+  localstack-data:
+  redis-data:
+  opensearch-data:
+  model-cache:
+
+networks:
+  default:
+    name: mss-metro-ai_default

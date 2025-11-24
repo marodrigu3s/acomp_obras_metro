@@ -67,7 +67,7 @@ const Usuarios = () => {
             <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
               <ArrowLeft className="w-5 h-5" />
             </Button>
-            <div className="flex items-center justify-center w-12 h-12 bg-white rounded-lg p-1.5">
+            <div className="flex items-center justify-center w-18 h-12 bg-white rounded-lg p-1.5">
               <img src={metroLogo} alt="Metrô São Paulo" className="w-full h-full object-contain" />
             </div>
             <div>

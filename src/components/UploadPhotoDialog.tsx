@@ -32,7 +32,6 @@ const UploadPhotoDialog = ({ open, onOpenChange, obraId, onPhotoUploaded }: Uplo
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [nomeFoto, setNomeFoto] = useState("");
   const [descricao, setDescricao] = useState("");
-  const [localizacao, setLocalizacao] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -49,12 +48,15 @@ const UploadPhotoDialog = ({ open, onOpenChange, obraId, onPhotoUploaded }: Uplo
 
     setLoading(true);
 
+    // Gera data atual no formato YYYY-MM-DD
+    const dataHoje = new Date().toISOString().split('T')[0];
+
     const resultado = await uploadFoto(
       obraId,
       selectedFile,
       nomeFoto,
-      descricao,
-      localizacao
+      dataHoje,
+      descricao || undefined
     );
 
     if (resultado.error) {
@@ -68,7 +70,6 @@ const UploadPhotoDialog = ({ open, onOpenChange, obraId, onPhotoUploaded }: Uplo
       setSelectedFile(null);
       setNomeFoto("");
       setDescricao("");
-      setLocalizacao("");
       onOpenChange(false);
       onPhotoUploaded?.();
     }
@@ -80,13 +81,12 @@ const UploadPhotoDialog = ({ open, onOpenChange, obraId, onPhotoUploaded }: Uplo
     setSelectedFile(null);
     setNomeFoto("");
     setDescricao("");
-    setLocalizacao("");
     onOpenChange(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ImagePlus className="w-5 h-5 text-primary" />
@@ -94,9 +94,9 @@ const UploadPhotoDialog = ({ open, onOpenChange, obraId, onPhotoUploaded }: Uplo
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-5 py-4">
+        <div className="space-y-4 py-2 overflow-y-auto flex-1">
           {/* File Upload Area */}
-          <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/50 transition-colors">
+          <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
             {selectedFile ? (
               <div className="space-y-3">
                 <div className="w-16 h-16 bg-primary/10 rounded-lg mx-auto flex items-center justify-center">
@@ -118,16 +118,18 @@ const UploadPhotoDialog = ({ open, onOpenChange, obraId, onPhotoUploaded }: Uplo
                 </Button>
               </div>
             ) : (
-              <label htmlFor="file-upload" className="cursor-pointer">
-                <div className="w-16 h-16 bg-secondary rounded-lg mx-auto flex items-center justify-center mb-3">
-                  <Upload className="w-8 h-8 text-muted-foreground" />
-                </div>
-                <p className="font-medium text-foreground mb-1">
-                  Arraste sua foto aqui
-                </p>
-                <p className="text-sm text-muted-foreground mb-3">
-                  ou clique para selecionar
-                </p>
+              <div>
+                <label htmlFor="file-upload" className="cursor-pointer block">
+                  <div className="w-16 h-16 bg-secondary rounded-lg mx-auto flex items-center justify-center mb-3">
+                    <Upload className="w-8 h-8 text-muted-foreground" />
+                  </div>
+                  <p className="font-medium text-foreground mb-1">
+                    Arraste sua foto aqui
+                  </p>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    ou clique para selecionar
+                  </p>
+                </label>
                 <input
                   id="file-upload"
                   type="file"
@@ -135,11 +137,15 @@ const UploadPhotoDialog = ({ open, onOpenChange, obraId, onPhotoUploaded }: Uplo
                   accept="image/*"
                   onChange={handleFileChange}
                 />
-                <Button variant="outline" size="sm" type="button">
-                  <Upload className="w-4 h-4 mr-2" />
-                  Selecionar Arquivo
-                </Button>
-              </label>
+                <label htmlFor="file-upload">
+                  <Button variant="outline" size="sm" type="button" asChild>
+                    <span className="cursor-pointer">
+                      <Upload className="w-4 h-4 mr-2" />
+                      Selecionar Arquivo
+                    </span>
+                  </Button>
+                </label>
+              </div>
             )}
           </div>
 
@@ -161,35 +167,23 @@ const UploadPhotoDialog = ({ open, onOpenChange, obraId, onPhotoUploaded }: Uplo
               <Label htmlFor="descricao">Descrição da Foto</Label>
               <Textarea
                 id="descricao"
-                placeholder="Descreva a foto..."
+                placeholder="Descreva a foto... (opcional)"
                 value={descricao}
                 onChange={(e) => setDescricao(e.target.value)}
                 rows={3}
               />
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="localizacao">Localização</Label>
-              <Input
-                id="localizacao"
-                placeholder="Ex: Plataforma 1, Mezanino, Sala técnica..."
-                value={localizacao}
-                onChange={(e) => setLocalizacao(e.target.value)}
-              />
-            </div>
           </div>
 
           {/* Info Box */}
-          <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
-            <p className="text-sm text-foreground">
-              <strong>Análise Automática:</strong> A foto será processada automaticamente para
-              identificar elementos de segurança, qualidade da construção e conformidade com
-              padrões do Metrô SP.
+          <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
+            <p className="text-xs text-foreground">
+              <strong>Análise Automática:</strong> A foto será processada automaticamente para identificar elementos de segurança, qualidade da construção e conformidade.
             </p>
           </div>
         </div>
 
-        <DialogFooter className="gap-2">
+        <DialogFooter className="gap-2 flex-shrink-0">
           <Button variant="outline" onClick={handleCancel}>
             Cancelar
           </Button>
